@@ -1,5 +1,7 @@
 import datetime
 
+from django.contrib.auth.models import User
+
 from django.test import TestCase
 
 from django.urls import reverse
@@ -29,6 +31,26 @@ class QuestionResultsViewTests(TestCase):
         response = self.client.get(url)
         self.assertContains(response, past_question.question_text)
 
+    def test_future_question_as_admin(self):
+        User.objects.create_superuser(username='test_admin', password='12345')
+        self.client.login(username='test_admin', password='12345')
+
+        future_question = create_question(question_text='Future question.',
+                                          days=5)
+        url = reverse('polls:results', args=(future_question.id,))
+        response = self.client.get(url)
+        self.assertContains(response, future_question.question_text)
+
+    def test_future_question_as_non_admin_user(self):
+        User.objects.create_user(username='test_user', password='12345')
+        self.client.login(username='test_user', password='12345')
+
+        future_question = create_question(question_text='Future question.',
+                                          days=5)
+        url = reverse('polls:results', args=(future_question.id,))
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
+
 class QuestionDetailViewTests(TestCase):
     def test_future_question(self):
         future_question = create_question(question_text='Future question.', 
@@ -43,6 +65,26 @@ class QuestionDetailViewTests(TestCase):
         url = reverse('polls:detail', args=(past_question.id,))
         response = self.client.get(url)
         self.assertContains(response, past_question.question_text)
+
+    def test_future_question_as_admin(self):
+        User.objects.create_superuser(username='test_admin', password='12345')
+        self.client.login(username='test_admin', password='12345')
+
+        future_question = create_question(question_text='Future question.',
+                                          days=5)
+        url = reverse('polls:detail', args=(future_question.id,))
+        response = self.client.get(url)
+        self.assertContains(response, future_question.question_text)
+
+    def test_future_question_as_non_admin_user(self):
+        User.objects.create_user(username='test_user', password='12345')
+        self.client.login(username='test_user', password='12345')
+
+        future_question = create_question(question_text='Future question.',
+                                          days=5)
+        url = reverse('polls:detail', args=(future_question.id,))
+        response = self.client.get(url)
+        self.assertEqual(response.status_code, 404)
 
 class QuestionIndexViewTests(TestCase):
     def test_no_questions(self):
@@ -66,6 +108,17 @@ class QuestionIndexViewTests(TestCase):
         self.assertContains(response, 'No polls available.')
         self.assertQuerysetEqual(response.context['latest_question_list'],[])
 
+    def test_future_question_as_admin(self):
+        User.objects.create_superuser(username='test_admin', password='12345')
+        self.client.login(username='test_admin', password='12345')
+
+        create_question(question_text='Future question.', days=30)
+        response = self.client.get(reverse('polls:index'))
+        self.assertQuerysetEqual(
+                                 response.context['latest_question_list'],
+                                 ['<Question: Future question.>']
+                                 )
+
     def test_future_question_and_past_question(self):
         create_question(question_text='Future question.', days=30)
         create_question(question_text='Past question.', days=-30)
@@ -75,6 +128,21 @@ class QuestionIndexViewTests(TestCase):
                                  ['<Question: Past question.>']
                                  )
 
+    def test_future_question_and_past_question_as_admin(self):
+        User.objects.create_superuser(username='test_admin', password='12345')
+        self.client.login(username='test_admin', password='12345')
+
+        create_question(question_text='Future question.', days=30)
+        create_question(question_text='Past question.', days=-30)
+        response = self.client.get(reverse('polls:index'))
+        self.assertQuerysetEqual(
+                                 response.context['latest_question_list'],
+                                 [
+                                  '<Question: Future question.>',
+                                  '<Question: Past question.>'                                  
+                                 ]
+                                 )
+
     def test_two_past_questions(self):
         create_question(question_text='Past question 1.', days=-30)
         create_question(question_text='Past question 2.', days=-5)
@@ -82,8 +150,8 @@ class QuestionIndexViewTests(TestCase):
         self.assertQuerysetEqual(
                                  response.context['latest_question_list'],
                                  [
-                                     '<Question: Past question 2.>',
-                                     '<Question: Past question 1.>'
+                                  '<Question: Past question 2.>',
+                                  '<Question: Past question 1.>'
                                  ]
                                  )
 
